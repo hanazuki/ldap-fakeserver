@@ -1,9 +1,10 @@
 require 'ldap/fakeserver/version'
 require 'ldap/server'
 
+require_relative 'fakeserver/dn'
+
 module LDAP
   module FakeServer
-
     class Operation < LDAP::Server::Operation
       def initialize(conn, msgid, mutex, directory)
         super(conn, msgid)
