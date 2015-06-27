@@ -12,17 +12,29 @@ module LDAP
       end
 
       def search(basedn, scope, deref, filter)
-        basedn.downcase!
+        basedn = Dn.parse(basedn)
 
+        exists = false
+        @directory.each do |dn, entry|
+          dn = Dn.parse(dn)
+          if in_scope(scope, basedn, dn)
+            send_SearchResultEntry(dn.to_s, entry) if LDAP::Server::Filter.run(filter, entry)
+            exists = true
+          end
+        end
+        raise LDAP::ResultError::NoSuchObject unless exists
+      end
+
+      private
+
+      def in_scope(scope, basedn, dn)
         case scope
         when LDAP::Server::BaseObject
-          entry = @directory[basedn]
-          raise LDAP::ResultError::NoSuchObject unless entry
-          send_SearchResultEntry(basedn, entry) if LDAP::Server::Filter.run(filter, entry)
+          basedn == dn
         when LDAP::Server::SingleLevel
-          raise LDAP::ResultError::UnwillingToPerform, 'not implemented'
+          basedn.suffix_of?(dn) and basedn.length + 1 == dn.length
         when LDAP::Server::WholeSubtree
-          raise LDAP::ResultError::UnwillingToPerform, 'not implemented'
+          basedn.suffix_of?(dn)
         else
           raise LDAP::ResultError::UnwillingToPerform, 'unrecognized search scope'
         end
@@ -41,7 +53,7 @@ module LDAP
           operation_args: [Mutex.new, @directory]
         }.merge(opt)
 
-        super(DEFAULT_OPT.merge(opt))
+        super(opt)
       end
 
     end
